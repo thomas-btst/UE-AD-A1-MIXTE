@@ -1,22 +1,24 @@
-import grpc
-from concurrent import futures
-import booking_pb2
-import booking_pb2_grpc
-import json
+from ariadne import graphql_sync, make_executable_schema, load_schema_from_path, ObjectType, QueryType, MutationType
+from flask import Flask, request, jsonify
 
-class BookingServicer(booking_pb2_grpc.BookingServicer):
+import resolvers as r
 
-    def __init__(self):
-        with open('{}/data/bookings.json'.format("."), "r") as jsf:
-            self.db = json.load(jsf)["schedule"]
+PORT = 3001
+HOST = '0.0.0.0'
+app = Flask(__name__)
 
-def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    booking_pb2_grpc.add_BookingServicer_to_server(BookingServicer(), server)
-    server.add_insecure_port('[::]:3002')
-    server.start()
-    server.wait_for_termination()
+# todo create elements for Ariadne
 
+# root message
+@app.route("/", methods=['GET'])
+def home():
+    return make_response("<h1 style='color:blue'>Welcome to the Movie service!</h1>",200)
 
-if __name__ == '__main__':
-    serve()
+# graphql entry points
+@app.route('/graphql', methods=['POST'])
+def graphql_server():
+    # todo to complete
+
+if __name__ == "__main__":
+    print("Server running in port %s"%(PORT))
+    app.run(host=HOST, port=PORT)
