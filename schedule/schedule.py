@@ -67,6 +67,33 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
         response = requests.get(f"http://localhost:3004/users/{userid}/admin")
         return response.status_code == 200
 
+    @staticmethod
+    def check_schedule_not_used_in_booking(admin_id: str, date: int, movie_id: str):
+        response = requests.post(
+            "http://localhost:3003/graphql",
+            json={
+                "query": f"""
+                    query{{
+                        bookings_with_admin_id(_admin_id:"{admin_id}") {{
+                            dates {{
+                                date
+                                movies
+                            }}
+                        }}
+                    }}
+                """
+            },
+        )
+        if response.status_code == 200:
+            data = response.json()["data"]["bookings_with_admin_id"]
+            if data is None:
+                return True
+            else:
+                if any(any(bookingDate["date"] == str(date) and movie_id in bookingDate["movies"] for bookingDate in booking["dates"]) for booking in data):
+                    return False
+                return True
+        raise Exception("Unknown error")
+
     # RPC
 
     def GetListSchedules(self, request, context):
@@ -107,7 +134,11 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
     def DeleteSchedule(self, request, context):
         if not self.is_userid_admin(request.user_id):
             return self.empty_schedule_dto()
-        # TODO check schedule is not used in booking
+
+        for movie in request.schedule.movies:
+            if not self.check_schedule_not_used_in_booking(request.user_id, request.schedule.date, movie):
+                return self.empty_schedule_dto()
+
         schedule = self.find_by_date_or_none(request.schedule.date)
         if schedule is None:
             return self.empty_schedule_dto()

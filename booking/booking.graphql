@@ -1,0 +1,20 @@
+type Query {
+    booking_with_userid(_userid: String!): Booking
+    bookings_with_admin_id(_admin_id: String!): [Booking!]
+    date_with_userid_and_date(_userid: String!, _date: String!): Date
+}
+
+type Mutation {
+    add_booking(_userid: String!, _date: String!, _movie_id: String!): Booking
+    delete_booking(_userid: String!, _date: String!, _movie_id: String!): Booking
+}
+
+type Booking {
+    userid: String!
+    dates: [Date!]
+}
+
+type Date {
+    date: String!
+    movies: [String!]
+}
