@@ -1,6 +1,7 @@
-FROM python:3.8-alpine
+FROM python:3.13-alpine
 WORKDIR /app
-COPY requirements.txt /app
-RUN pip install -r requirements.txt
-ADD . /app/
-CMD ["python","-u","booking.py"]
+COPY requirements.txt .
+RUN pip install -r requirements.txt --root-user-action=ignore
+ADD booking/ .
+EXPOSE 3003
+ENTRYPOINT ["python", "-u", "booking.py"]
