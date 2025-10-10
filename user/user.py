@@ -4,11 +4,25 @@ import json
 import time
 
 from werkzeug.exceptions import Forbidden, NotFound, Conflict
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
 
 PORT = 3004
 HOST = '0.0.0.0'
+
+SWAGGER_URL = "/docs"
+API_URL = "/static/openapi.en.yml"
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        "app_name": "User Management API"
+    }
+)
+
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 db_path = '{}/data/users.json'.format(".")
 db_root_key = 'users'
@@ -42,15 +56,15 @@ def is_admin_id_or_raise(admin_id: str):
 @app.route("/users/admin/<admin_id>", methods=['GET'])
 def list_users(admin_id: str):
     is_admin_id_or_raise(admin_id)
-    return make_response(jsonify(users))
+    return make_response(jsonify(users), 200)
 
 @app.route("/users/<userid>", methods=['GET'])
 def get_user(userid: str):
-    return make_response(jsonify(find_user_by_id_or_raise(userid)))
+    return make_response(jsonify(find_user_by_id_or_raise(userid)), 200)
 
 @app.route("/users/<admin_id>/admin", methods=['GET'])
 def is_admin(admin_id: str):
-    return make_response(jsonify(is_admin_id_or_raise(admin_id)))
+    return make_response(jsonify(is_admin_id_or_raise(admin_id)), 200)
 
 @app.route("/users", methods=['POST'])
 def create_user():
@@ -92,7 +106,7 @@ def delete_user(userid: str):
     user = find_user_by_id_or_raise(userid)
     users.remove(user)
     write(users)
-    return make_response(jsonify(user), 500)
+    return make_response(jsonify(user), 200)
 
 if __name__ == "__main__":
    print("Server running in port %s"%(PORT))

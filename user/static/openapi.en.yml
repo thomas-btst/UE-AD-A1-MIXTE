@@ -1,0 +1,191 @@
+openapi: 3.0.4
+info:
+  title: User Management API
+  version: 1.0.0
+  description: |
+    This API allows managing a list of users with administrative roles.
+    It includes creating, updating, deleting, and retrieving users.
+
+servers:
+  - url: http://localhost:3004
+    description: Local development server
+
+paths:
+  /users/admin/{admin_id}:
+    get:
+      summary: List all users (admin-only)
+      parameters:
+        - name: admin_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID of the administrator user.
+      responses:
+        '200':
+          description: List of all users.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Access denied — user is not an administrator.
+        '404':
+          description: User not found.
+
+  /users/{userid}:
+    get:
+      summary: Retrieve a user's information by ID.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found.
+    delete:
+      summary: Delete a user by ID.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User successfully deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found.
+
+  /users/{admin_id}/admin:
+    get:
+      summary: Check if a user is an administrator.
+      parameters:
+        - name: admin_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Administrator user information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Access denied — user is not an administrator.
+        '404':
+          description: User not found.
+
+  /users:
+    post:
+      summary: Create a new user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: string
+                  example: user123
+                name:
+                  type: string
+                  example: John Doe
+      responses:
+        '200':
+          description: User successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: A user with this ID already exists.
+
+  /users/{userid}/last-active:
+    patch:
+      summary: Update a user's `last_active` timestamp.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Timestamp successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found.
+
+  /users/{userid}/name:
+    patch:
+      summary: Update a user's name.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Alice Martin"
+      responses:
+        '200':
+          description: Name successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found.
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user123"
+        name:
+          type: string
+          example: "John Doe"
+        last_active:
+          type: integer
+          description: Unix timestamp of last activity.
+          example: 1728580245
+        is_admin:
+          type: boolean
+          example: false

@@ -1,0 +1,191 @@
+openapi: 3.0.4
+info:
+  title: User Management API
+  version: 1.0.0
+  description: |
+    Cette API permet de gérer une liste d'utilisateurs avec des rôles d'administration.
+    Elle inclut la création, la mise à jour, la suppression et la consultation des utilisateurs.
+
+servers:
+  - url: http://localhost:3004
+    description: Serveur local de développement
+
+paths:
+  /users/admin/{admin_id}:
+    get:
+      summary: Liste tous les utilisateurs (réservé aux administrateurs)
+      parameters:
+        - name: admin_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID de l'utilisateur administrateur.
+      responses:
+        '200':
+          description: Liste de tous les utilisateurs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Accès refusé — l'utilisateur n'est pas administrateur.
+        '404':
+          description: Utilisateur non trouvé.
+
+  /users/{userid}:
+    get:
+      summary: Récupère les informations d’un utilisateur par ID.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Informations sur l’utilisateur.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Utilisateur non trouvé.
+    delete:
+      summary: Supprime un utilisateur par ID.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Utilisateur supprimé avec succès.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Utilisateur non trouvé.
+
+  /users/{admin_id}/admin:
+    get:
+      summary: Vérifie si un utilisateur est administrateur.
+      parameters:
+        - name: admin_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Informations sur l'utilisateur administrateur.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Accès refusé — utilisateur non administrateur.
+        '404':
+          description: Utilisateur non trouvé.
+
+  /users:
+    post:
+      summary: Crée un nouvel utilisateur.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: string
+                  example: user123
+                name:
+                  type: string
+                  example: Jean Dupont
+      responses:
+        '200':
+          description: Utilisateur créé avec succès.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: Un utilisateur avec cet ID existe déjà.
+
+  /users/{userid}/last-active:
+    patch:
+      summary: Met à jour le timestamp `last_active` d’un utilisateur.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Timestamp mis à jour avec succès.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Utilisateur non trouvé.
+
+  /users/{userid}/name:
+    patch:
+      summary: Met à jour le nom d’un utilisateur.
+      parameters:
+        - name: userid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "Alice Martin"
+      responses:
+        '200':
+          description: Nom mis à jour avec succès.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Utilisateur non trouvé.
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "user123"
+        name:
+          type: string
+          example: "Jean Dupont"
+        last_active:
+          type: integer
+          description: Timestamp Unix de la dernière activité.
+          example: 1728580245
+        is_admin:
+          type: boolean
+          example: false
