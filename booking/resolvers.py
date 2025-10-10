@@ -27,7 +27,7 @@ def find_movie_in_date_or_none(date, movie: str):
     return next(filter(lambda _movie: _movie == movie, date["movies"]), None)
 
 def requests_user_api_get(url: str):
-    return requests.get(f"http://localhost:3004/{url}")
+    return requests.get(f"http://user:3004/{url}")
 
 # Resolvers
 
@@ -50,7 +50,7 @@ def date_with_userid_and_date(_, __, _userid: str, _date: str):
 def add_booking(_, __, _userid: str, _date: str, _movie_id: str):
     bookings = load()
 
-    with grpc.insecure_channel('localhost:3002') as channel:
+    with grpc.insecure_channel('schedule:3002') as channel:
         stub = schedule_pb2_grpc.ScheduleServiceStub(channel)
         schedule = stub.GetScheduleByDate(schedule_pb2.Date(date=int(_date)))
         if _movie_id not in list(schedule.movies):
