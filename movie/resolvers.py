@@ -56,7 +56,7 @@ def find_actors_by_movie_id(movie_id: str):
     return [actor for actor in actors if movie_id in actor["movies"]]
 
 def is_userid_admin_or_raise(userid: str):
-    response = requests.get(f"http://localhost:3004/users/{userid}/admin")
+    response = requests.get(f"http://user:3004/users/{userid}/admin")
     if response.status_code != 200:
         raise Exception("Access forbidden")
 
@@ -97,7 +97,7 @@ def update_movie(_, __, _id: str, _userid: str, _title: str = None, _rating: flo
 
 def delete_movie(_, __, _id: str, _userid: str):
     is_userid_admin_or_raise(_userid)
-    with grpc.insecure_channel('localhost:3002') as channel:
+    with grpc.insecure_channel('schedule:3002') as channel:
         stub = schedule_pb2_grpc.ScheduleServiceStub(channel)
         dates = stub.GetScheduleByMovie(schedule_pb2.MovieId(movie_id=_id)).dates
         if list(dates):

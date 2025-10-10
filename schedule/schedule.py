@@ -32,7 +32,7 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
     @staticmethod
     def check_movie_exists(movie_id: str):
         response = requests.post(
-            "http://localhost:3001/graphql",
+            "http://movie:3001/graphql",
             json ={
                 "query": f"""
                     query{{
@@ -64,13 +64,13 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
 
     @staticmethod
     def is_userid_admin(userid: str):
-        response = requests.get(f"http://localhost:3004/users/{userid}/admin")
+        response = requests.get(f"http://user:3004/users/{userid}/admin")
         return response.status_code == 200
 
     @staticmethod
     def check_schedule_not_used_in_booking(admin_id: str, date: int, movie_id: str):
         response = requests.post(
-            "http://localhost:3003/graphql",
+            "http://booking:3003/graphql",
             json={
                 "query": f"""
                     query{{

@@ -1,16 +1,8 @@
-FROM python
-# can you find a lighter image?
-
+FROM python:3.13-alpine
 WORKDIR /app
-
-# copy the requirements file in the workdir
-RUN
-
-# install the Python requirements
-RUN
-
-# copy the app files and directories
-RUN
-
-# start movie.py when the container is started
-CMD 
+COPY requirements.txt .
+RUN pip install -r requirements.txt --root-user-action=ignore
+ADD movie/ .
+RUN python -m grpc_tools.protoc -I=. --python_out=. --grpc_python_out=. schedule.proto
+EXPOSE 3001
+ENTRYPOINT ["python", "-u", "movie.py"]

@@ -1,7 +1,33 @@
 services:
   movie:
-    build: ./movie/
+    build:
+      context: .
+      dockerfile: movie/Dockerfile
     ports:
-      - "3200:3200"
-  # to continue
-
+      - "3001:3001"
+    volumes:
+      - ./movie/data/:/app/data/
+  schedule:
+    build:
+      context: .
+      dockerfile: schedule/Dockerfile
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./schedule/data/:/app/data/
+  booking:
+    build:
+      context: .
+      dockerfile: booking/Dockerfile
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./booking/data/:/app/data/
+  user:
+    build:
+      context: .
+      dockerfile: user/Dockerfile
+    ports:
+      - "3004:3004"
+    volumes:
+      - ./user/data/:/app/data/
