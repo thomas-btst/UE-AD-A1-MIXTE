@@ -94,6 +94,7 @@ def update_movie(_, __, _id: str, _userid: str, _title: str = None, _rating: flo
 
 def delete_movie(_, __, _id: str, _userid: str):
     is_userid_admin_or_raise(_userid)
+    # TODO check schedules before
 
     movie = find_movie_by_id_or_raise(_id)
     for actor in find_actors_by_movie_id(movie["id"]):

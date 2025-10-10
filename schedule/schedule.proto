@@ -3,6 +3,8 @@ syntax = "proto3";
 service ScheduleService {
     rpc GetListSchedules(Empty) returns (Schedules) {}
     rpc GetScheduleByDate(Date) returns (Movies) {}
+    rpc AddSchedule(Schedule) returns (Schedule) {}
+    rpc DeleteSchedule(Schedule) returns (Schedule) {}
 }
 
 message Date {
