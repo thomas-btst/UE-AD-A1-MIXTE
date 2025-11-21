@@ -19,7 +19,8 @@ class UserDBMongoConnector(UserDBConnector):
         db = client["mixte"]
         self.collection = db["users"]
 
-        self.collection.insert_many(UserDBJsonConnector().users)
+        if self.collection.count_documents({}) == 0:
+            self.collection.insert_many(UserDBJsonConnector().users)
 
     def find_by_id_or_none(self, _id: str) -> User | None:
         return user_model_to_user(self.collection.find_one({"id": _id}))
