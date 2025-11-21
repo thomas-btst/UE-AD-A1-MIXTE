@@ -4,26 +4,30 @@ import grpc
 import schedule_pb2
 import schedule_pb2_grpc
 import sys
+import os
+
+from dotenv import load_dotenv
 
 from db.implementations.BookingDBMongoConnector import BookingDBMongoConnector
 from db.implementations.BookingDBJsonConnector import BookingDBJsonConnector
 from db.BookingDBConnector import BookingDBConnector
 
+load_dotenv()
+
+USER_API = os.getenv("USER_API") or "localhost:3004"
+SCHEDULE_API = os.getenv("SCHEDULE_API") or "localhost:3002"
+
 # Database Connector
 db: BookingDBConnector
 
-if len(sys.argv) != 2:
-    print("Usage: python script.py <json|mongo>")
-    sys.exit(1)  # Exit if wrong number of arguments
-
-mode = sys.argv[1].lower()
-if mode not in ("json", "mongo"):
-    print("Argument must be 'json' or 'mongo'")
-    sys.exit(1)
-if mode == "json":
-    db = BookingDBJsonConnector()
-else:
-    db = BookingDBMongoConnector()
+match (os.getenv("DB_TYPE")):
+    case "json":
+        db = BookingDBJsonConnector()
+    case "mongo":
+        db = BookingDBMongoConnector()
+    case _:
+        print("DB_TYPE env variable must be 'json' or 'mongo'")
+        sys.exit(1)
 
 # Helpers
 
@@ -34,7 +38,7 @@ def find_movie_in_date_or_none(date, movie: str):
     return next(filter(lambda _movie: _movie == movie, date["movies"]), None)
 
 def requests_user_api_get(url: str):
-    return requests.get(f"http://user:3004/{url}")
+    return requests.get(f"http://{USER_API}/{url}")
 
 # Resolvers
 
@@ -53,7 +57,7 @@ def date_with_userid_and_date(_, __, _userid: str, _date: str):
     return None
 
 def add_booking(_, __, _userid: str, _date: str, _movie_id: str):
-    with grpc.insecure_channel('schedule:3002') as channel:
+    with grpc.insecure_channel(SCHEDULE_API) as channel:
         stub = schedule_pb2_grpc.ScheduleServiceStub(channel)
         schedule = stub.GetScheduleByDate(schedule_pb2.Date(date=int(_date)))
         if _movie_id not in list(schedule.movies):

@@ -1,6 +1,8 @@
 # REST API
+import os
 import sys
 
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, make_response
 import time
 
@@ -10,6 +12,8 @@ from flask_swagger_ui import get_swaggerui_blueprint
 from db.UserDBConnector import UserDBConnector
 from db.implementation.UserDBJsonConnector import UserDBJsonConnector
 from db.implementation.UserDBMongoConnector import UserDBMongoConnector
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -99,18 +103,14 @@ def delete_user(userid: str):
     return make_response(jsonify(user), 200)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <json|mongo>")
-        sys.exit(1)  # Exit if wrong number of arguments
-
-    mode = sys.argv[1].lower()
-    if mode not in ("json", "mongo"):
-        print("Argument must be 'json' or 'mongo'")
-        sys.exit(1)
-    if mode == "json":
-        db = UserDBJsonConnector()
-    else:
-        db = UserDBMongoConnector()
+    match(os.getenv("DB_TYPE")):
+        case "json":
+            db = UserDBJsonConnector()
+        case "mongo":
+            db = UserDBMongoConnector()
+        case _:
+            print("DB_TYPE env variable must be 'json' or 'mongo'")
+            sys.exit(1)
 
     print("Server running in port %s"%(PORT))
     app.run(host=HOST, port=PORT)

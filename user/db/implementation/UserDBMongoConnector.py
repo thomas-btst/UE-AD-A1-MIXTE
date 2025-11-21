@@ -1,6 +1,11 @@
+from dotenv import load_dotenv
+
 from .UserDBJsonConnector import UserDBJsonConnector
 from ..UserDBConnector import UserDBConnector, User
 from pymongo import MongoClient
+import os
+
+load_dotenv()
 
 def user_model_to_user(user_model: User | None) -> User | None:
     if user_model is None:
@@ -10,7 +15,7 @@ def user_model_to_user(user_model: User | None) -> User | None:
 
 class UserDBMongoConnector(UserDBConnector):
     def __init__(self):
-        client = MongoClient("mongodb://root:example@mongo:27017/")
+        client = MongoClient(os.getenv("MONGO_URI"))
         db = client["mixte"]
         self.collection = db["users"]
 

@@ -1,6 +1,11 @@
+from dotenv import load_dotenv
+
 from .BookingDBJsonConnector import BookingDBJsonConnector
 from ..BookingDBConnector import BookingDBConnector, Booking
 from pymongo import MongoClient
+import os
+
+load_dotenv()
 
 def booking_model_to_booking(booking_model: Booking | None) -> Booking | None:
     if booking_model is None:
@@ -10,7 +15,7 @@ def booking_model_to_booking(booking_model: Booking | None) -> Booking | None:
 
 class BookingDBMongoConnector(BookingDBConnector):
     def __init__(self):
-        client = MongoClient("mongodb://root:example@mongo:27017/")
+        client = MongoClient(os.getenv("MONGO_URI"))
         db = client["mixte"]
         self.collection = db["bookings"]
 

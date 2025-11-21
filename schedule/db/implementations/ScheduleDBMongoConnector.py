@@ -1,7 +1,11 @@
-from pymongo import MongoClient
+import os
 
+from dotenv import load_dotenv
+from pymongo import MongoClient
 from .ScheduleDBJsonConnector import ScheduleDBJsonConnector
 from ..ScheduleDBConnector import ScheduleDBConnector, Schedule
+
+load_dotenv()
 
 def schedule_model_to_schedule(schedule_model: Schedule | None) -> Schedule | None:
     if schedule_model is None:
@@ -11,7 +15,7 @@ def schedule_model_to_schedule(schedule_model: Schedule | None) -> Schedule | No
 
 class ScheduleDBMongoConnector(ScheduleDBConnector):
     def __init__(self):
-        client = MongoClient("mongodb://root:example@mongo:27017/")
+        client = MongoClient(os.getenv("MONGO_URI"))
         db = client["mixte"]
         self.collection = db["schedules"]
 

@@ -1,6 +1,12 @@
+from dotenv import load_dotenv
+import os
+
 from .MovieDBJsonConnector import MovieDBJsonConnector
 from ..MovieDBConnector import MovieDBConnector, Movie
 from pymongo import MongoClient
+
+
+load_dotenv()
 
 def movie_model_to_movie(movie_model: Movie | None) -> Movie | None:
     if movie_model is None:
@@ -10,7 +16,7 @@ def movie_model_to_movie(movie_model: Movie | None) -> Movie | None:
 
 class MovieDBMongoConnector(MovieDBConnector):
     def __init__(self):
-        client = MongoClient("mongodb://root:example@mongo:27017/")
+        client = MongoClient(os.getenv("MONGO_URI"))
         db = client["mixte"]
         self.collection = db["movies"]
 

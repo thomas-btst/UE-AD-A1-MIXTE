@@ -4,10 +4,19 @@ import schedule_pb2
 import schedule_pb2_grpc
 import requests
 import sys
+import os
+
+from dotenv import load_dotenv
 
 from db.ScheduleDBConnector import ScheduleDBConnector
 from db.implementations.ScheduleDBJsonConnector import ScheduleDBJsonConnector
 from db.implementations.ScheduleDBMongoConnector import ScheduleDBMongoConnector
+
+load_dotenv()
+
+MOVIE_API = os.getenv("MOVIE_API") or "localhost:3001"
+BOOKING_API = os.getenv("BOOKING_API") or "localhost:3003"
+USER_API = os.getenv("USER_API") or "localhost:3004"
 
 db: ScheduleDBConnector
 
@@ -21,7 +30,7 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
     @staticmethod
     def check_movie_exists(movie_id: str):
         response = requests.post(
-            "http://movie:3001/graphql",
+            f"http://{MOVIE_API}/graphql",
             json ={
                 "query": f"""
                     query{{
@@ -53,13 +62,13 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
 
     @staticmethod
     def is_userid_admin(userid: str):
-        response = requests.get(f"http://user:3004/users/{userid}/admin")
+        response = requests.get(f"http://{USER_API}/users/{userid}/admin")
         return response.status_code == 200
 
     @staticmethod
     def check_schedule_not_used_in_booking(admin_id: str, date: int, movie_id: str):
         response = requests.post(
-            "http://booking:3003/graphql",
+            f"http://{BOOKING_API}/graphql",
             json={
                 "query": f"""
                     query{{
@@ -151,17 +160,13 @@ def serve():
     server.wait_for_termination()
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("Usage: python script.py <json|mongo>")
-        sys.exit(1)  # Exit if wrong number of arguments
-
-    mode = sys.argv[1].lower()
-    if mode not in ("json", "mongo"):
-        print("Argument must be 'json' or 'mongo'")
-        sys.exit(1)
-    if mode == "json":
-        db = ScheduleDBJsonConnector()
-    else:
-        db = ScheduleDBMongoConnector()
+    match (os.getenv("DB_TYPE")):
+        case "json":
+            db = ScheduleDBJsonConnector()
+        case "mongo":
+            db = ScheduleDBMongoConnector()
+        case _:
+            print("DB_TYPE env variable must be 'json' or 'mongo'")
+            sys.exit(1)
 
     serve()
