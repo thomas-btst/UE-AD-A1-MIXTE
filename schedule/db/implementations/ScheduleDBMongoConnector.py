@@ -19,7 +19,8 @@ class ScheduleDBMongoConnector(ScheduleDBConnector):
         db = client["mixte"]
         self.collection = db["schedules"]
 
-        self.collection.insert_many(ScheduleDBJsonConnector().schedules)
+        if self.collection.count_documents({}) == 0:
+            self.collection.insert_many(ScheduleDBJsonConnector().schedules)
 
     def find_by_date_or_none(self, date: int) -> Schedule | None:
         return schedule_model_to_schedule(self.collection.find_one({"date": date}))

@@ -19,7 +19,8 @@ class BookingDBMongoConnector(BookingDBConnector):
         db = client["mixte"]
         self.collection = db["bookings"]
 
-        self.collection.insert_many(BookingDBJsonConnector().bookings)
+        if self.collection.count_documents({}) == 0:
+            self.collection.insert_many(BookingDBJsonConnector().bookings)
 
     def find_by_userid_or_none(self, userid: str) -> Booking | None:
         return booking_model_to_booking(self.collection.find_one({"userid": userid}))

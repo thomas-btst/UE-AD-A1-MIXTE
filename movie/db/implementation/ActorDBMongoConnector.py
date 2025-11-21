@@ -20,7 +20,8 @@ class ActorDBMongoConnector(ActorDBConnector):
         db = client["mixte"]
         self.collection = db["actors"]
 
-        self.collection.insert_many(ActorDBJsonConnector().actors)
+        if self.collection.count_documents({}) == 0:
+            self.collection.insert_many(ActorDBJsonConnector().actors)
 
     def find_by_id_or_none(self, _id: str) -> Actor | None:
         return actor_model_to_actor(self.collection.find_one({"id": _id}))

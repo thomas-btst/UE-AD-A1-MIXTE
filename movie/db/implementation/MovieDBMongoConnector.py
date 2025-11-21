@@ -20,7 +20,8 @@ class MovieDBMongoConnector(MovieDBConnector):
         db = client["mixte"]
         self.collection = db["movies"]
 
-        self.collection.insert_many(MovieDBJsonConnector().movies)
+        if self.collection.count_documents({}) == 0:
+            self.collection.insert_many(MovieDBJsonConnector().movies)
 
     def find_by_id_or_none(self, _id: str) -> Movie | None:
         return movie_model_to_movie(self.collection.find_one({"id": _id}))
