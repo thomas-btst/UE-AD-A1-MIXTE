@@ -3,9 +3,6 @@ services:
     build:
       context: .
       dockerfile: movie/Dockerfile
-    command:
-#      - json
-      - mongo
     depends_on:
       - mongo
     ports:
@@ -16,9 +13,6 @@ services:
     build:
       context: .
       dockerfile: schedule/Dockerfile
-    command:
-#      - json
-      - mongo
     depends_on:
       - mongo
     ports:
@@ -29,9 +23,6 @@ services:
     build:
       context: .
       dockerfile: booking/Dockerfile
-    command:
-#      - json
-      - mongo
     depends_on:
       - mongo
     ports:
@@ -43,9 +34,6 @@ services:
       context: .
       dockerfile: user/Dockerfile
     depends_on:
-      - mongo
-    command:
-#      - json
       - mongo
     ports:
       - "3004:3004"

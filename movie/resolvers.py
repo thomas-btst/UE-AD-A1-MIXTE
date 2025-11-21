@@ -1,9 +1,10 @@
-import json
 import requests
 import grpc
 import schedule_pb2
 import schedule_pb2_grpc
 import sys
+
+from dotenv import load_dotenv
 
 from db.implementation.ActorDBJsonConnector import ActorDBJsonConnector
 from db.implementation.MovieDBJsonConnector import MovieDBJsonConnector
@@ -11,25 +12,28 @@ from db.implementation.ActorDBMongoConnector import ActorDBMongoConnector
 from db.implementation.MovieDBMongoConnector import MovieDBMongoConnector
 from db.MovieDBConnector import MovieDBConnector
 from db.ActorDBConnector import ActorDBConnector
+import os
+
+load_dotenv()
+
+SCHEDULE_API = os.getenv("SCHEDULE_API") or "localhost:3002"
 
 # Database Connector
 movie_db: MovieDBConnector
 actor_db: ActorDBConnector
 
-if len(sys.argv) != 2:
-    print("Usage: python script.py <json|mongo>")
-    sys.exit(1)  # Exit if wrong number of arguments
+USER_API = os.getenv("USER_API") or "localhost:3004"
 
-mode = sys.argv[1].lower()
-if mode not in ("json", "mongo"):
-    print("Argument must be 'json' or 'mongo'")
-    sys.exit(1)
-if mode == "json":
-    movie_db = MovieDBJsonConnector()
-    actor_db = ActorDBJsonConnector()
-else:
-    movie_db = MovieDBMongoConnector()
-    actor_db = ActorDBMongoConnector()
+match (os.getenv("DB_TYPE")):
+    case "json":
+        movie_db = MovieDBJsonConnector()
+        actor_db = ActorDBJsonConnector()
+    case "mongo":
+        movie_db = MovieDBMongoConnector()
+        actor_db = ActorDBMongoConnector()
+    case _:
+        print("DB_TYPE env variable must be 'json' or 'mongo'")
+        sys.exit(1)
 
 # Helpers
 
@@ -46,7 +50,7 @@ def find_actor_by_id_or_raise(actor_id: str):
     return actor
 
 def is_userid_admin_or_raise(userid: str):
-    response = requests.get(f"http://user:3004/users/{userid}/admin")
+    response = requests.get(f"http://{USER_API}/users/{userid}/admin")
     if response.status_code != 200:
         raise Exception("Access forbidden")
 
@@ -84,7 +88,7 @@ def update_movie(_, __, _id: str, _userid: str, _title: str = None, _rating: flo
 
 def delete_movie(_, __, _id: str, _userid: str):
     is_userid_admin_or_raise(_userid)
-    with grpc.insecure_channel('schedule:3002') as channel:
+    with grpc.insecure_channel(SCHEDULE_API) as channel:
         stub = schedule_pb2_grpc.ScheduleServiceStub(channel)
         dates = stub.GetScheduleByMovie(schedule_pb2.MovieId(movie_id=_id)).dates
         if list(dates):

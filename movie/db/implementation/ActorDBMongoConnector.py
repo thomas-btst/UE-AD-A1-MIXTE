@@ -1,6 +1,12 @@
+import os
+
+from dotenv import load_dotenv
+
 from .ActorDBJsonConnector import ActorDBJsonConnector
 from ..ActorDBConnector import ActorDBConnector, Actor
 from pymongo import MongoClient
+
+load_dotenv()
 
 def actor_model_to_actor(actor_model: Actor | None) -> Actor | None:
     if actor_model is None:
@@ -10,7 +16,7 @@ def actor_model_to_actor(actor_model: Actor | None) -> Actor | None:
 
 class ActorDBMongoConnector(ActorDBConnector):
     def __init__(self):
-        client = MongoClient("mongodb://root:example@mongo:27017/")
+        client = MongoClient(os.getenv("MONGO_URI"))
         db = client["mixte"]
         self.collection = db["actors"]
 

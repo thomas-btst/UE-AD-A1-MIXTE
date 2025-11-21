@@ -4,5 +4,6 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt --root-user-action=ignore
 ADD booking/ .
 RUN python -m grpc_tools.protoc -I=. --python_out=. --grpc_python_out=. schedule.proto
+COPY .env .
 EXPOSE 3003
 ENTRYPOINT ["python", "-u", "booking.py"]
