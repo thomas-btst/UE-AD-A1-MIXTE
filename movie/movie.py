@@ -1,11 +1,17 @@
+import sys
 from ariadne import graphql_sync, make_executable_schema, load_schema_from_path, ObjectType, QueryType, MutationType
 from flask import Flask, request, jsonify, make_response
 
 import resolvers as r
+from db.MovieDBConnector import MovieDBConnector
+from db.ActorDBConnector import ActorDBConnector
 
 PORT = 3001
 HOST = '0.0.0.0'
 app = Flask(__name__)
+
+movie_db: MovieDBConnector
+actor_db: ActorDBConnector
 
 type_defs = load_schema_from_path('movie.graphql')
 

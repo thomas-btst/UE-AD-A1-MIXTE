@@ -3,22 +3,29 @@ import requests
 import grpc
 import schedule_pb2
 import schedule_pb2_grpc
+import sys
 
-db_path = '{}/data/bookings.json'.format(".")
-db_root_key = 'bookings'
+from db.implementations.BookingDBMongoConnector import BookingDBMongoConnector
+from db.implementations.BookingDBJsonConnector import BookingDBJsonConnector
+from db.BookingDBConnector import BookingDBConnector
 
-def load():
-    with open(db_path, "r") as jsf:
-        return json.load(jsf)[db_root_key]
+# Database Connector
+db: BookingDBConnector
 
-def write(bookings):
-    with open(db_path, 'w') as f:
-        full = {}
-        full[db_root_key]=bookings
-        json.dump(full, f)
+if len(sys.argv) != 2:
+    print("Usage: python script.py <json|mongo>")
+    sys.exit(1)  # Exit if wrong number of arguments
 
-def find_booking_by_userid_or_none(bookings, userid: str):
-    return next(filter(lambda _booking: _booking["userid"] == userid, bookings), None)
+mode = sys.argv[1].lower()
+if mode not in ("json", "mongo"):
+    print("Argument must be 'json' or 'mongo'")
+    sys.exit(1)
+if mode == "json":
+    db = BookingDBJsonConnector()
+else:
+    db = BookingDBMongoConnector()
+
+# Helpers
 
 def find_date_in_booking_or_none(booking, date: str):
     return next(filter(lambda _date: _date["date"] == date, booking["dates"]), None)
@@ -32,24 +39,20 @@ def requests_user_api_get(url: str):
 # Resolvers
 
 def booking_with_userid(_, __, _userid: str):
-    bookings = load()
-    return find_booking_by_userid_or_none(bookings, _userid)
+    return db.find_by_userid_or_none(_userid)
 
 def bookings_with_admin_id(_, __, _admin_id: str):
     if requests_user_api_get(f"/users/{_admin_id}/admin").status_code != 200 :
         return None
-    return load()
+    return db.find_all()
 
 def date_with_userid_and_date(_, __, _userid: str, _date: str):
-    bookings = load()
-    booking = find_booking_by_userid_or_none(bookings, _userid)
+    booking = db.find_by_userid_or_none(_userid)
     if booking:
         return find_date_in_booking_or_none(booking, _date)
     return None
 
 def add_booking(_, __, _userid: str, _date: str, _movie_id: str):
-    bookings = load()
-
     with grpc.insecure_channel('schedule:3002') as channel:
         stub = schedule_pb2_grpc.ScheduleServiceStub(channel)
         schedule = stub.GetScheduleByDate(schedule_pb2.Date(date=int(_date)))
@@ -59,10 +62,10 @@ def add_booking(_, __, _userid: str, _date: str, _movie_id: str):
     if requests_user_api_get(f"/users/{_userid}").status_code != 200:
         return None
 
-    booking = find_booking_by_userid_or_none(bookings, _userid)
+    booking = db.find_by_userid_or_none(_userid)
     if booking is None:
         booking = {"userid": _userid, "dates": []}
-        bookings.append(booking)
+        db.create(booking)
 
     date = find_date_in_booking_or_none(booking, _date)
     if date is None:
@@ -73,13 +76,11 @@ def add_booking(_, __, _userid: str, _date: str, _movie_id: str):
         return None
     date["movies"].append(_movie_id)
 
-    write(bookings)
+    db.update(booking)
     return booking
 
 def delete_booking(_, __, _userid: str, _date: str, _movie_id: str):
-    bookings = load()
-
-    booking = find_booking_by_userid_or_none(bookings, _userid)
+    booking = db.find_by_userid_or_none(_userid)
     if booking is None:
         return None
 
@@ -95,8 +96,9 @@ def delete_booking(_, __, _userid: str, _date: str, _movie_id: str):
     if not date["movies"]:
         booking["dates"].remove(date)
 
-    if not booking["dates"]:
-        bookings.remove(booking)
+    if booking["dates"]:
+        db.update(booking)
+    else:
+        db.delete(booking["userid"])
 
-    write(bookings)
     return booking
