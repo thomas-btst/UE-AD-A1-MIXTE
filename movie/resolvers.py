@@ -3,78 +3,64 @@ import requests
 import grpc
 import schedule_pb2
 import schedule_pb2_grpc
+import sys
 
-db_path = './data'
-db_movies_file = "movies.json"
-db_actors_file = "actors.json"
-db_movies_key = "movies"
-db_actors_key = "actors"
+from db.implementation.ActorDBJsonConnector import ActorDBJsonConnector
+from db.implementation.MovieDBJsonConnector import MovieDBJsonConnector
+from db.implementation.ActorDBMongoConnector import ActorDBMongoConnector
+from db.implementation.MovieDBMongoConnector import MovieDBMongoConnector
+from db.MovieDBConnector import MovieDBConnector
+from db.ActorDBConnector import ActorDBConnector
 
-def compute_path(file: str):
-    return f'{db_path}/{file}'
+# Database Connector
+movie_db: MovieDBConnector
+actor_db: ActorDBConnector
 
-def load(file: str, key: str):
-    with open(compute_path(file), 'r') as file:
-        return json.load(file)[key]
+if len(sys.argv) != 2:
+    print("Usage: python script.py <json|mongo>")
+    sys.exit(1)  # Exit if wrong number of arguments
 
-def write(file: str, key: str, value):
-    with open(compute_path(file), 'w') as file:
-        json.dump({key: value}, file)
+mode = sys.argv[1].lower()
+if mode not in ("json", "mongo"):
+    print("Argument must be 'json' or 'mongo'")
+    sys.exit(1)
+if mode == "json":
+    movie_db = MovieDBJsonConnector()
+    actor_db = ActorDBJsonConnector()
+else:
+    movie_db = MovieDBMongoConnector()
+    actor_db = ActorDBMongoConnector()
 
-movies = load(db_movies_file, db_movies_key)
-
-actors = load(db_actors_file, db_actors_key)
-
-def write_movies():
-    write(db_movies_file, db_movies_key, movies)
-
-def write_actors():
-    write(db_actors_file, db_actors_key, actors)
-
-def find_by_id_or_none(array, _id: str):
-    return next(filter(lambda item: item["id"] == _id, array), None)
-
-def find_movie_by_id_or_none(movie_id: str):
-    return find_by_id_or_none(movies, movie_id)
+# Helpers
 
 def find_movie_by_id_or_raise(movie_id: str):
-    movie = find_movie_by_id_or_none(movie_id)
+    movie = movie_db.find_by_id_or_none(movie_id)
     if movie is None:
         raise Exception(f"Movie with ID '{movie_id}' not found")
     return movie
 
-def find_actor_by_id_or_none(actor_id: str):
-    return find_by_id_or_none(actors, actor_id)
-
 def find_actor_by_id_or_raise(actor_id: str):
-    actor = find_actor_by_id_or_none(actor_id)
+    actor = actor_db.find_by_id_or_none(actor_id)
     if actor is None:
         raise Exception(f"Actor with ID '{actor_id}' not found")
     return actor
-
-def find_actors_by_movie_id(movie_id: str):
-    return [actor for actor in actors if movie_id in actor["movies"]]
 
 def is_userid_admin_or_raise(userid: str):
     response = requests.get(f"http://user:3004/users/{userid}/admin")
     if response.status_code != 200:
         raise Exception("Access forbidden")
 
-def assign_value_if_not_none(obj, key: str, value):
-    if value is not None:
-        obj[key] = value
-
 # Resolvers
 
 def list_movies(_,__):
-    return movies
+    return movie_db.find_all()
 
 def movie_with_id(_,__,_id: str):
     return find_movie_by_id_or_raise(_id)
 
 def add_movie(_, __, _id: str, _userid: str, _title: str, _director: str, _rating: float):
     is_userid_admin_or_raise(_userid)
-    if find_movie_by_id_or_none(_id):
+    if movie_db.find_by_id_or_none(_id):
         raise Exception(f"Movie with ID '{_id}' already exists")
     new_movie = {
         "id": _id,
@@ -82,17 +68,18 @@ def add_movie(_, __, _id: str, _userid: str, _title: str, _director: str, _ratin
         "director": _director,
         "rating": _rating,
     }
-    movies.append(new_movie)
-    write_movies()
+    movie_db.create(new_movie)
     return new_movie
 
 def update_movie(_, __, _id: str, _userid: str, _title: str = None, _rating: float = None, _director: str = None):
     is_userid_admin_or_raise(_userid)
     movie = find_movie_by_id_or_raise(_id)
-    assign_value_if_not_none(movie, "title", _title)
-    assign_value_if_not_none(movie, "rating", _rating)
-    assign_value_if_not_none(movie, "director", _director)
-    write_movies()
+    if _title is not None:
+        movie = movie_db.update_title(_id, _title)
+    if _rating is not None:
+        movie = movie_db.update_rating(_id, _rating)
+    if _director is not None:
+        movie = updated_movie = movie_db.update_director(_id, _director)
     return movie
 
 def delete_movie(_, __, _id: str, _userid: str):
@@ -103,22 +90,22 @@ def delete_movie(_, __, _id: str, _userid: str):
         if list(dates):
             raise Exception(f"Movie '{_id}' is used in a schedule")
     movie = find_movie_by_id_or_raise(_id)
-    for actor in find_actors_by_movie_id(movie["id"]):
-        actor["movies"].remove(_id)
-    movies.remove(movie)
-    write_actors()
-    write_movies()
+    for actor in actor_db.find_all_by_movie_id(movie["id"]):
+        movies = actor["movies"]
+        movies.remove(_id)
+        actor_db.update_movies(actor["id"], movies)
+    movie_db.delete(_id)
     return movie
 
 def resolve_actors_in_movie(movie, _):
-    return find_actors_by_movie_id(movie["id"])
+    return actor_db.find_all_by_movie_id(movie["id"])
 
 def actor_with_id(_, __, _id: str):
     return find_actor_by_id_or_raise(_id)
 
 def add_actor(_, __, _id: str, _userid: str, _firstname: str, _lastname: str, _birthyear: int, _movies):
     is_userid_admin_or_raise(_userid)
-    if find_actor_by_id_or_none(_id):
+    if actor_db.find_by_id_or_none(_id):
         raise Exception(f"Actor with ID '{_id}' already exists")
     for movie in _movies:
         find_movie_by_id_or_raise(movie)
@@ -129,8 +116,7 @@ def add_actor(_, __, _id: str, _userid: str, _firstname: str, _lastname: str, _b
         "birthyear": _birthyear,
         "movies": _movies,
     }
-    actors.append(new_actor)
-    write_actors()
+    actor_db.create(new_actor)
     return new_actor
 
 def update_actor(_, __, _id: str, _userid: str, _firstname: str = None, _lastname: str = None, _birthyear: int = None, _movies=None):
@@ -139,19 +125,21 @@ def update_actor(_, __, _id: str, _userid: str, _firstname: str = None, _lastnam
     if _movies:
         for movie in _movies:
             find_movie_by_id_or_raise(movie)
-    assign_value_if_not_none(actor, "firstname", _firstname)
-    assign_value_if_not_none(actor, "lastname", _lastname)
-    assign_value_if_not_none(actor, "birthyear", _birthyear)
-    assign_value_if_not_none(actor, "movies", _movies)
-    write_actors()
+    if _firstname is not None:
+        actor_db.update_firstname(_id, _firstname)
+    if _lastname is not None:
+        actor_db.update_lastname(_id, _lastname)
+    if _birthyear is not None:
+        actor_db.update_birthyear(_id, _birthyear)
+    if _movies is not None:
+        actor_db.update_movies(_id, _movies)
     return actor
 
 def delete_actor(_, __, _id: str, _userid: str):
     is_userid_admin_or_raise(_userid)
     actor = find_actor_by_id_or_raise(_id)
-    actors.remove(actor)
-    write_actors()
+    actor_db.delete(_id)
     return actor
 
 def resolve_movies_in_actor(actor, _):
-    return map(lambda movie_id: find_movie_by_id_or_none(movie_id) , actor["movies"])
+    return movie_db.find_all_by_id(actor["movies"])

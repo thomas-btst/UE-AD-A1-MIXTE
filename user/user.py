@@ -1,10 +1,15 @@
 # REST API
+import sys
+
 from flask import Flask, render_template, request, jsonify, make_response
-import json
 import time
 
 from werkzeug.exceptions import Forbidden, NotFound, Conflict
 from flask_swagger_ui import get_swaggerui_blueprint
+
+from db.UserDBConnector import UserDBConnector
+from db.implementation.UserDBJsonConnector import UserDBJsonConnector
+from db.implementation.UserDBMongoConnector import UserDBMongoConnector
 
 app = Flask(__name__)
 
@@ -24,31 +29,19 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-db_path = '{}/data/users.json'.format(".")
-db_root_key = 'users'
-
-with open(db_path, "r") as jsf:
-   users = json.load(jsf)[db_root_key]
-
-def write(_users):
-    with open(db_path, 'w') as f:
-        full = {db_root_key: _users}
-        json.dump(full, f)
+db: UserDBConnector
 
 def timestamp():
     return int(time.time())
 
-def find_user_by_id_or_none(_id: str):
-    return next(filter(lambda user: user["id"] == _id, users), None)
-
 def find_user_by_id_or_raise(_id: str):
-    user = find_user_by_id_or_none(_id)
+    user = db.find_by_id_or_none(_id)
     if user is None:
         raise NotFound(f"User with id '{_id}' not found")
     return user
 
 def is_admin_id_or_raise(admin_id: str):
-    user = find_user_by_id_or_none(admin_id)
+    user = db.find_by_id_or_none(admin_id)
     if user is None or not user["is_admin"]:
         raise Forbidden("Access forbidden")
     return user
@@ -56,7 +49,7 @@ def is_admin_id_or_raise(admin_id: str):
 @app.route("/users/admin/<admin_id>", methods=['GET'])
 def list_users(admin_id: str):
     is_admin_id_or_raise(admin_id)
-    return make_response(jsonify(users), 200)
+    return make_response(jsonify(db.find_all()), 200)
 
 @app.route("/users/<userid>", methods=['GET'])
 def get_user(userid: str):
@@ -72,7 +65,7 @@ def create_user():
 
     userid = str(req["id"])
 
-    if find_user_by_id_or_none(userid):
+    if db.find_by_id_or_none(userid):
         raise Conflict(f"User with ID '{userid}' already exists")
 
     user = {
@@ -81,33 +74,43 @@ def create_user():
       "last_active": timestamp(),
       "is_admin": False,
     }
-    users.append(user)
-    write(users)
+    db.create(user)
     return make_response(jsonify(user),200)
 
 @app.route("/users/<userid>/last-active", methods=['PATCH'])
 def update_last_active(userid: str):
-    user = find_user_by_id_or_raise(userid)
-    user["last_active"] = timestamp()
-    write(users)
-    return make_response(jsonify(user),200)
+    find_user_by_id_or_raise(userid)
+    db.update_last_active(userid, timestamp())
+    updated_user = db.find_by_id_or_none(userid)
+    return make_response(jsonify(updated_user),200)
 
 @app.route("/users/<userid>/name", methods=['PATCH'])
 def update_name(userid: str):
     req = request.get_json()
-    user = find_user_by_id_or_raise(userid)
-    user["name"] = str(req["name"])
-    user["last_active"] = timestamp()
-    write(users)
-    return make_response(jsonify(user),200)
+    find_user_by_id_or_raise(userid)
+    db.update_name(userid, str(req["name"]))
+    updated_user = db.update_last_active(userid, timestamp())
+    return make_response(jsonify(updated_user),200)
 
 @app.route("/users/<userid>", methods=['DELETE'])
 def delete_user(userid: str):
     user = find_user_by_id_or_raise(userid)
-    users.remove(user)
-    write(users)
+    db.delete(userid)
     return make_response(jsonify(user), 200)
 
 if __name__ == "__main__":
-   print("Server running in port %s"%(PORT))
-   app.run(host=HOST, port=PORT)
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <json|mongo>")
+        sys.exit(1)  # Exit if wrong number of arguments
+
+    mode = sys.argv[1].lower()
+    if mode not in ("json", "mongo"):
+        print("Argument must be 'json' or 'mongo'")
+        sys.exit(1)
+    if mode == "json":
+        db = UserDBJsonConnector()
+    else:
+        db = UserDBMongoConnector()
+
+    print("Server running in port %s"%(PORT))
+    app.run(host=HOST, port=PORT)

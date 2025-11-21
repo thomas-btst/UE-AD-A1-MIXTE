@@ -2,31 +2,20 @@ import grpc
 from concurrent import futures
 import schedule_pb2
 import schedule_pb2_grpc
-import json
 import requests
+import sys
 
-db_path = '{}/data/times.json'.format(".")
-db_root_key = 'schedule'
+from db.ScheduleDBConnector import ScheduleDBConnector
+from db.implementations.ScheduleDBJsonConnector import ScheduleDBJsonConnector
+from db.implementations.ScheduleDBMongoConnector import ScheduleDBMongoConnector
+
+db: ScheduleDBConnector
 
 class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
 
-    def __init__(self):
-        with open(db_path, "r") as jsf:
-            self.schedules = json.load(jsf)[db_root_key]
-
-    def write(self):
-        with open(db_path, 'w') as file:
-            json.dump({db_root_key: self.schedules}, file)
-
-    def find_by_date_or_none(self, date: int):
-        return next(filter(lambda schedule: schedule["date"] == date, self.schedules), None)
-
     @staticmethod
-    def find_by_movie_id_in_schedule_or_none(schedule, movie_id: str):
-        return next(filter(lambda _movie_id: movie_id == _movie_id, schedule["movies"]), None)
-
-    def find_dates_by_movie(self, movie: str):
-        filtered_schedules = filter(lambda schedule: movie in schedule["movies"], self.schedules)
+    def find_dates_by_movie(movie: str):
+        filtered_schedules = db.find_all_by_movie_id(movie)
         return list(map(lambda schedule: schedule["date"], filtered_schedules))
 
     @staticmethod
@@ -97,10 +86,10 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
     # RPC
 
     def GetListSchedules(self, request, context):
-        return schedule_pb2.Schedules(schedules=self.schedules)
+        return schedule_pb2.Schedules(schedules=db.find_all())
 
     def GetScheduleByDate(self, request, context):
-        schedule = self.find_by_date_or_none(request.date)
+        schedule = db.find_by_date_or_none(request.date)
         if schedule is None :
             return self.movies_to_dto([])
         return self.movies_to_dto(schedule["movies"])
@@ -112,23 +101,23 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
     def AddSchedule(self, request, context):
         if not self.is_userid_admin(request.user_id):
             return self.empty_schedule_dto()
-        schedule = self.find_by_date_or_none(request.schedule.date)
+        schedule = db.find_by_date_or_none(request.schedule.date)
         movies = list(request.schedule.movies)
         for movie_id in movies:
             if not self.check_movie_exists(movie_id):
                 return self.empty_schedule_dto()
         if schedule:
             for movie_id in movies:
-                if self.find_by_movie_id_in_schedule_or_none(schedule, movie_id):
+                if next(filter(lambda _movie_id: movie_id == _movie_id, schedule["movies"]), None):
                     return self.empty_schedule_dto()
                 schedule["movies"].append(movie_id)
+            db.update(schedule)
         else:
             schedule = {
                 "date": request.schedule.date,
                 "movies": movies
             }
-            self.schedules.append(schedule)
-        self.write()
+            db.create(schedule)
         return self.schedule_to_dto(schedule)
 
     def DeleteSchedule(self, request, context):
@@ -139,7 +128,7 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
             if not self.check_schedule_not_used_in_booking(request.user_id, request.schedule.date, movie):
                 return self.empty_schedule_dto()
 
-        schedule = self.find_by_date_or_none(request.schedule.date)
+        schedule = db.find_by_date_or_none(request.schedule.date)
         if schedule is None:
             return self.empty_schedule_dto()
 
@@ -148,9 +137,10 @@ class ScheduleServicer(schedule_pb2_grpc.ScheduleServiceServicer):
                 schedule["movies"].remove(movie_id)
             else:
                 return self.empty_schedule_dto()
-        if not schedule["movies"]:
-            self.schedules.remove(schedule)
-        self.write()
+        if schedule["movies"]:
+            db.update(schedule)
+        else:
+            db.delete(request.schedule.date)
         return self.schedule_to_dto(schedule)
 
 def serve():
@@ -161,4 +151,17 @@ def serve():
     server.wait_for_termination()
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <json|mongo>")
+        sys.exit(1)  # Exit if wrong number of arguments
+
+    mode = sys.argv[1].lower()
+    if mode not in ("json", "mongo"):
+        print("Argument must be 'json' or 'mongo'")
+        sys.exit(1)
+    if mode == "json":
+        db = ScheduleDBJsonConnector()
+    else:
+        db = ScheduleDBMongoConnector()
+
     serve()
