@@ -1,4 +1,4 @@
-# UE-AD-A1-MIXTE
+# Heterogeneous Microservices Architecture
 
 This project implements a microservices-based system composed of four independent services: movies, users, schedules, and bookings.
 The goal is to demonstrate a heterogeneous architecture using multiple communication protocols (REST, GraphQL, gRPC), fully containerized with Docker.
